@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Expense Manager</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+:root{
+    --primary:#6c5ce7;
+    --success:#00b894;
+    --danger:#ff4757;
+    --bg:#f4f6fb;
+    --card:#ffffff;
+}
+
+body{
+    margin:0;
+    font-family:"Segoe UI",sans-serif;
+    background:var(--bg);
+}
+
+header{
+    background:linear-gradient(135deg,#667eea,#764ba2);
+    color:#fff;
+    padding:18px;
+    text-align:center;
+    font-size:22px;
+    font-weight:600;
+}
+
+.container{
+    max-width:900px;
+    margin:auto;
+    padding:15px;
+}
+
+.grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+    gap:15px;
+}
+
+.card{
+    background:var(--card);
+    padding:16px;
+    border-radius:14px;
+    box-shadow:0 6px 18px rgba(0,0,0,.08);
+}
+
+h3{margin-top:0}
+
+input,select{
+    width:100%;
+    padding:10px;
+    margin:6px 0;
+    border-radius:8px;
+    border:1px solid #ccc;
+}
+
+button{
+    width:100%;
+    padding:10px;
+    border:none;
+    border-radius:10px;
+    font-size:15px;
+    cursor:pointer;
+    color:white;
+    background:linear-gradient(135deg,#43cea2,#185a9d);
+}
+
+button.danger{background:var(--danger)}
+button.gray{background:#636e72}
+
+ul{list-style:none;padding:0;margin:0}
+
+li{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    background:#f2f4ff;
+    margin:6px 0;
+    padding:8px 10px;
+    border-radius:8px;
+}
+
+.delete{
+    background:var(--danger);
+    border:none;
+    color:white;
+    border-radius:6px;
+    padding:4px 8px;
+}
+
+.stats{
+    display:flex;
+    justify-content:space-between;
+    text-align:center;
+}
+
+.stats h2{color:var(--primary);margin:5px 0}
+
+table{width:100%;border-collapse:collapse}
+td{padding:6px}
+tr:nth-child(even){background:#f6f6f6}
+
+canvas{width:100%;margin-top:10px}
+</style>
+</head>
+
+<body>
+
+<header>💰 Expense Manager</header>
+
+<div class="container">
+<div class="grid">
+
+<!-- INCOME -->
+<div class="card">
+<h3>Monthly Income</h3>
+<input type="number" id="income" placeholder="Enter income">
+</div>
+
+<!-- ADD EXPENSE -->
+<div class="card">
+<h3>Add Expense</h3>
+<input type="text" id="expenseName" placeholder="Expense name">
+<input type="number" id="expenseAmount" placeholder="Amount">
+<select id="category">
+<option value="">Select category</option>
+<option>Food</option>
+<option>Rent</option>
+<option>Travel</option>
+<option>Shopping</option>
+<option>Other</option>
+</select>
+<button onclick="addExpense()">➕ Add Expense</button>
+</div>
+
+<!-- OVERVIEW -->
+<div class="card">
+<h3>Overview</h3>
+<div class="stats">
+<div>
+<p>Total Spent</p>
+<h2>₹<span id="total">0</span></h2>
+</div>
+<div>
+<p>Savings</p>
+<h2>₹<span id="savings">0</span></h2>
+</div>
+</div>
+</div>
+
+<!-- EXPENSE LIST -->
+<div class="card">
+<h3>Expenses</h3>
+<ul id="expenseList"></ul>
+</div>
+
+<!-- SUMMARY -->
+<div class="card">
+<h3>Summary</h3>
+<div id="summary"></div>
+</div>
+
+<!-- CHART -->
+<div class="card">
+<h3>Category Chart</h3>
+<canvas id="chart" width="300" height="200"></canvas>
+</div>
+
+<!-- RESET OPTIONS -->
+<div class="card">
+<h3>Reset Options</h3>
+<button onclick="resetExpenses()">🔄 Reset Expenses</button>
+<button class="danger" onclick="resetAll()" style="margin-top:6px;">
+🧹 Reset Income & Expenses
+</button>
+<button class="gray" onclick="resetMonth()" style="margin-top:6px;">
+📆 Reset Month
+</button>
+</div>
+
+</div>
+</div>
+
+<script>
+/* MONTH CHECK */
+const month=new Date().getMonth();
+if(localStorage.getItem("month")!=month){
+    localStorage.clear();
+    localStorage.setItem("month",month);
+}
+
+/* DATA */
+let expenses=JSON.parse(localStorage.getItem("expenses"))||[];
+let income=Number(localStorage.getItem("income"))||0;
+document.getElementById("income").value=income;
+
+/* SAVE INCOME */
+document.getElementById("income").addEventListener("change",()=>{
+    income=Number(incomeInput.value);
+});
+
+/* ADD EXPENSE */
+function addExpense(){
+    let name=expenseName.value;
+    let amount=Number(expenseAmount.value);
+    let cat=category.value;
+    if(!name||amount<=0||!cat){alert("Fill all fields");return;}
+    expenses.push({name,amount,category:cat});
+    localStorage.setItem("expenses",JSON.stringify(expenses));
+    expenseName.value=expenseAmount.value=category.value="";
+    calculate();
+}
+
+/* DELETE */
+function deleteExpense(i){
+    expenses.splice(i,1);
+    localStorage.setItem("expenses",JSON.stringify(expenses));
+    calculate();
+}
+
+/* DISPLAY */
+function displayExpenses(){
+    expenseList.innerHTML="";
+    expenses.forEach((e,i)=>{
+        expenseList.innerHTML+=`
+        <li>${e.name} (${e.category}) - ₹${e.amount}
+        <button class="delete" onclick="deleteExpense(${i})">X</button></li>`;
+    });
+}
+
+/* CALCULATE */
+function calculate(){
+    let totalAmt=expenses.reduce((s,e)=>s+e.amount,0);
+    total.innerText=totalAmt;
+    savings.innerText=income-totalAmt;
+    localStorage.setItem("income",income);
+    showSummary();
+    drawChart();
+    displayExpenses();
+}
+
+/* SUMMARY */
+function showSummary(){
+    if(!expenses.length){summary.innerHTML="<i>No expenses yet</i>";return;}
+    let cat={},totalAmt=0;
+    expenses.forEach(e=>{
+        totalAmt+=e.amount;
+        cat[e.category]=(cat[e.category]||0)+e.amount;
+    });
+    let rows="";
+    for(let c in cat)rows+=`<tr><td>${c}</td><td>₹${cat[c]}</td></tr>`;
+    summary.innerHTML=`
+    <table>
+    <tr><td>Total Expenses</td><td>${expenses.length}</td></tr>
+    <tr><td>Total Spent</td><td>₹${totalAmt}</td></tr>
+    </table><hr>
+    <table>${rows}</table>`;
+}
+
+/* CHART */
+function drawChart(){
+    let ctx=chart.getContext("2d");
+    ctx.clearRect(0,0,chart.width,chart.height);
+    let cat={},x=30,i=0;
+    expenses.forEach(e=>cat[e.category]=(cat[e.category]||0)+e.amount);
+    let max=Math.max(...Object.values(cat),1);
+    let colors=["#ff7675","#55efc4","#74b9ff","#ffeaa7","#a29bfe"];
+    for(let c in cat){
+        let h=(cat[c]/max)*140;
+        ctx.fillStyle=colors[i++%5];
+        ctx.fillRect(x,170-h,35,h);
+        ctx.fillStyle="#333";
+        ctx.fillText(c,x-5,190);
+        x+=60;
+    }
+}
+
+/* RESET OPTIONS */
+function resetExpenses(){
+    if(confirm("Clear all expenses?")){
+        expenses=[];
+        localStorage.setItem("expenses","[]");
+        calculate();
+    }
+}
+
+function resetAll(){
+    if(confirm("Clear income and expenses?")){
+        expenses=[];
+        income=0;
+        localStorage.clear();
+        document.getElementById("income").value="";
+        calculate();
+    }
+}
+
+function resetMonth(){
+    if(confirm("Start new month?")){
+        expenses=[];
+        income=0;
+        localStorage.clear();
+        localStorage.setItem("month",new Date().getMonth());
+        document.getElementById("income").value="";
+        calculate();
+    }
+}
+
+calculate();
+</script>
+
+</body>
+</html>
